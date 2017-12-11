@@ -5,6 +5,8 @@ from __future__ import print_function
 import json
 import time
 import datetime
+import numpy as np
+import pandas as pd
 from urllib.request import urlopen
 
 # Number of attempts to download data
@@ -39,37 +41,40 @@ def download_data(uri):
     print("Exhausted attempts to download, returning empty data")
     return ""
 
+#From CSV with airport names, generate a dict of stations to pull data for
+def generate_stations(filename):
+    stations_by_state = {}
+    air_df = pd.read_csv(filename)
+    states = air_df.groupby('STATE')
+    for state in states.groups.keys():
+        station_list = states.get_group(state)['IATA_CODE'].values
+        station_list = [x for x in station_list]
+        if state == 'IA':
+            stations_by_state['AWOS'] = station_list
+        else:
+            stations_by_state[state + 's_ASOS'] = station_list
+    return stations_by_state 
 
 def main():
     # timestamps in UTC to request data for
     startts = datetime.datetime(2015, 1, 1)
-    endts = datetime.datetime(2015, 1, 12)
+    endts = datetime.datetime(2016, 1, 1)
 
     service = SERVICE + "data=all&tz=Etc/UTC&format=comma&latlon=yes&"
 
     service += startts.strftime('year1=%Y&month1=%m&day1=%d&')
     service += endts.strftime('year2=%Y&month2=%m&day2=%d&')
-
-    states = """AK AL AR AZ CA CO CT DE FL GA HI IA ID IL IN KS KY LA MA MD ME
-     MI MN MO MS MT NC ND NE NH NJ NM NV NY OH OK OR PA RI SC SD TN TX UT VA VT
-     WA WI WV WY"""
-    # IEM quirk to have Iowa AWOS sites in its own labeled network
-    networks = ['AWOS']
-    for state in states.split():
-        networks.append("%s_ASOS" % (state,))
-
-    for network in networks:
+    
+    stations = generate_stations('airports.csv')
+    for network in stations.keys():
         # Get metadata
         uri = ("https://mesonet.agron.iastate.edu/"
                "geojson/network/%s.geojson") % (network,)
-        data = urlopen(uri)
-        jdict = json.load(data)
-        for site in jdict['features']:
-            faaid = site['properties']['sid']
-            sitename = site['properties']['sname']
+        
+        for faaid in stations[network]:
             uri = '%s&station=%s' % (service, faaid)
-            print(('Network: %s Downloading: %s [%s]'
-                   ) % (network, sitename, faaid))
+            print(('Network: %s Downloading: %s'
+                   ) % (network, faaid))
             data = download_data(uri)
             outfn = 'weather_data/%s_%s_%s.txt' % (faaid, startts.strftime("%Y%m%d%H%M"),
                                       endts.strftime("%Y%m%d%H%M"))
