@@ -71,7 +71,7 @@ def main():
             print(('Network: %s Downloading: %s [%s]'
                    ) % (network, sitename, faaid))
             data = download_data(uri)
-            outfn = '%s_%s_%s.txt' % (faaid, startts.strftime("%Y%m%d%H%M"),
+            outfn = 'weather_data/%s_%s_%s.txt' % (faaid, startts.strftime("%Y%m%d%H%M"),
                                       endts.strftime("%Y%m%d%H%M"))
             out = open(outfn, 'wb')
             out.write(data)
